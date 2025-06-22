@@ -1,215 +1,163 @@
---------------------UNSAFE or SAFE-----------------------------------------------------------------------------
-if os.access() == 0 then
-	if os.master() == 1 then os.restart()
+-- ARK-2 Installer - Versione Refactor
+
+-- ================== SICUREZZA =====================
+if os.access() ~= 1 then
+	if os.master() == 1 then
+		if os.message("PS Vita must reboot to enter UNSAFE mode.\nDo you want to continue?", 1) == 1 then
+			os.restart()
+		else
+			os.exit()
+		end
 	else
-		os.message("UNSAFE MODE is required for this HB!",0)
+		os.message("UNSAFE MODE is required for this HB!", 0)
 		os.exit()
 	end
 end
+
 if files.exists("ux0:pspemu/temp/") then files.delete("ux0:pspemu/temp/") end
 
+-- ================== COSTANTI =====================
 __NAMEVPK = "ArkFast"
-dofile("updater.lua")
-
-----------------------Vars and resources------------------------------------------------------------------------------------
-color.loadpalette()
-back = image.load("back.png")
-buttonskey = image.load("buttons.png",20,20)
-buttonskey2 = image.load("buttons2.png",30,20)
-status,sizeUxo,clon,pos,dels=false,0,0,1,0
-actived = files.exists("tm0:npdrm/act.dat")
-mgsid=""
-
---constants
 PATHTONPUZ = "ux0:pspemu/PSP/GAME/NPUZ00146"
 PATHTOGAME = "ux0:pspemu/PSP/GAME/"
 PATHTOCLON = "ur0:appmeta/"
 
+-- ================== CARICAMENTO =====================
+dofile("updater.lua")
 dofile("system/ark.lua")
 dofile("system/functions.lua")
 dofile("system/callbacks.lua")
 
-------------------------Menu Principal--------------------------------------------------------------------------------------
+color.loadpalette()
+back = image.load("back.png")
+buttonskey = image.load("buttons.png",20,20)
+buttonskey2 = image.load("buttons2.png",30,20)
+
+-- ================== VARIABILI =====================
+status,sizeUxo,clon,pos,dels = false, 0, 0, 1, 0
+actived = files.exists("tm0:npdrm/act.dat")
+
+-- ================== FUNZIONI =====================
+function draw_button_hint(sprite, index, x, y, text, align)
+	if sprite then sprite:blitsprite(x, y, index) end
+	screen.print(x + 35, y + 3, text, 1, color.white, color.blue, align or __ALEFT)
+end
+
+-- ================== INIZIALIZZAZIONE =====================
 reload_list()
 check_freespace()
 files.mkdir(PATHTOGAME)
 buttons.interval(10,10)
 
+-- ================== LOOP PRINCIPALE =====================
 while true do
 	buttons.read()
 	if back then back:blit(0,0) end
 
-	---------      Prints Text Basics      ---------------------------------------------------------------------------------
-	if actived then
-		screen.print(480,10,"PSVita Actived",1,color.green,0x0,__ACENTER)
-	else
-		screen.print(480,10,"PSVita NOT Actived",1,color.red,0x0,__ACENTER)
-	end
+	-- Stato attivazione
+	screen.print(480,10, actived and "PSVita Actived" or "PSVita NOT Actived", 1, actived and color.green or color.red, 0x0, __ACENTER)
 	screen.print(480,35,"ARK-2 Installer",1,color.white,color.blue,__ACENTER)
-
-	screen.print(10,10,"Count: " .. list.len,1,color.red,0x0)
-	screen.print(10,30,"Sel Clons: " .. dels,1,color.red,0x0)
-
-	--Show size free
+	screen.print(10,10,"Count: " .. list.len,1,color.red)
+	screen.print(10,30,"Sel Clons: " .. dels,1,color.red)
 	screen.print(950,10,"ux0: "..files.sizeformat(sizeUxo).." Free",1,color.white,color.blue,__ARIGHT)
 
 	status = false
+
 	if list.len > 0 then
+		-- Icone
+		if list.icons[pos] then list.icons[pos]:resize(80,80):blit(784,125) end
+		if list.picons[pos] then list.picons[pos]:resize(80,80):blit(886,125) end
 
-		--------------------Blit Icons--------------------------------------------------------------------------------------
-		if list.icons[pos] then
-			list.icons[pos]:center()
-			list.icons[pos]:resize(80,80)
-			list.icons[pos]:blit(784,125)
-		end
-
-		--Pboot
-		if list.picons[pos] then
-			list.picons[pos]:center()
-			list.picons[pos]:resize(80,80)
-			list.picons[pos]:blit(886,125)
-		end
-
+		-- Lista
 		local y = 85
 		for i=pos,math.min(list.len,pos+14) do
-
 			if i == pos then screen.print(10,y,"->") end
-			screen.print(40,y,list.data[i].id or "unk")
-
-			if list.data[i].flag == 1 then ccolor=color.green else ccolor=color.red end
-			screen.print(195,y,list.data[i].comp or "unk",1,ccolor,0x0,__ALEFT)
-
-			screen.print(245,y,list.data[i].title or "unk",1,color.white,0x0,__ALEFT)
-
-			if list.data[i].del then draw.fillrect(33,y,700,16,color.new(255,255,255,100)) end
-
-			screen.print(700,y,list.data[i].sceid or "",1,color.white,0x0,__ARIGHT)
-			screen.print(725,y,list.data[i].clon or "",1,color.green,0x0,__ARIGHT)
-
+			local entry = list.data[i]
+			local ccolor = entry.flag == 1 and color.green or color.red
+			screen.print(40,y,entry.id or "unk")
+			screen.print(195,y,entry.comp or "unk",1,ccolor)
+			screen.print(245,y,entry.title or "unk")
+			if entry.del then draw.fillrect(33,y,700,16,color.new(255,255,255,100)) end
+			screen.print(700,y,entry.sceid or "",1,color.white,__ARIGHT)
+			screen.print(725,y,entry.clon or "",1,color.green,__ARIGHT)
 			y += 20
 		end
 
-		--------------------Left--------------------------------------------------------------------------------------------
-		if buttonskey then buttonskey:blitsprite(10,465,0) end											-- X
-		screen.print(45,468,"Install ARK",1,color.white,color.blue)
+		-- Pulsanti sinistra
+		draw_button_hint(buttonskey, 0, 10, 465, "Install ARK")
+		draw_button_hint(buttonskey, 2, 10, 488, "Clone Game")
+		draw_button_hint(buttonskey2, 1, 5, 508, "Install MINI Sasuke vs Commander & ARK2")
 
-		if buttonskey then buttonskey:blitsprite(10,488,2) end											-- []
-		screen.print(45,490,"Clone Game",1,color.white,color.blue)
-
-		if buttonskey2 then buttonskey2:blitsprite(5,508,1) end											--Start
-		screen.print(45,510,"Install the MINI Sasuke vs Commander & ARK2",1,color.white,color.blue)
-
-		--------------------Right-------------------------------------------------------------------------------------------
-		if buttonskey then buttonskey:blitsprite(930,465,3) end											--Cirle
-		screen.print(920,468,"Delete CLON(s)",1,color.white,color.blue, __ARIGHT)
-
-		if buttonskey then buttonskey:blitsprite(930,488,1) end											--Triangle
-		screen.print(920,490,"Mark/Unmark CLON(s) to be deleted",1,color.white,color.blue, __ARIGHT)
-		
-		if dels > 0 then
-			if buttonskey then buttonskey2:blitsprite(923,508,0) end									--Select
-			screen.print(920,510,"Unmark all CLON(s)",1,color.white,color.blue, __ARIGHT)
-		end
-
+		-- Pulsanti destra
+		draw_button_hint(buttonskey, 3, 930, 465, "Delete CLON(s)", __ARIGHT)
+		draw_button_hint(buttonskey, 1, 930, 488, "Mark/Unmark CLON(s)", __ARIGHT)
+		if dels > 0 then draw_button_hint(buttonskey2, 0, 923, 508, "Unmark all CLON(s)", __ARIGHT) end
 	else
 		screen.print(10,480,"No games PSP :(")
-		if buttonskey then
-			buttonskey:blitsprite(10,508,0)
-		end
-		screen.print(10,510,"Install the MINI Sasuke vs Commander and install ARK",1,color.white,color.blue)
+		draw_button_hint(buttonskey, 0, 10, 508, "Install MINI Sasuke vs Commander & ARK2")
+		if buttons.cross and check_freespace() then install_ark_from0() end
+	end
 
-		if buttons.cross then 
-			if check_freespace() then install_ark_from0()
-			else
-				os.message("Not Enough Memory (minimum 40 MB)")
+	-- Controlli navigazione
+	if (buttons.up or buttons.analogly < -60) and pos > 1 then pos -= 1 end
+	if (buttons.down or buttons.analogly > 60) and pos < list.len then pos += 1 end
+
+	-- Controlli azioni
+	local game = list.data[pos]
+	if game then
+		if buttons.cross and game.flag == 1 and check_freespace() then
+			if os.message("Install ARK in the game "..game.id.." ?",1) == 1 then
+				buttons.homepopup(0)
+				install_ark(game.path)
+				update_db(true)
+			end
+		end
+
+		if buttons.square and game.flag == 1 and check_freespace() then
+			if os.message("Clone this game for ARK or Adrenaline?",1) == 1 then
+				local delp = false
+				if files.exists(PATHTOGAME..game.id.."/PBOOT.PBP") then
+					local sfo = game.info(PATHTOGAME..game.id.."/PBOOT.PBP")
+					if os.message("PBOOT.PBP: "..tostring(sfo.TITLE).." found.\nDelete for clean clone?",1) == 1 then
+						delp = true
+					end
+				end
+				local number_clons = math.minmax(tonumber(osk.init("Create Clones (1 to 9)","1",2,1)),1,9)
+				install_clone(game.path, game.id, number_clons, delp)
+			end
+		end
+
+		if buttons.triangle and game.clon == "©" then
+			game.del = not game.del
+			dels += game.del and 1 or -1
+		end
+
+		if buttons.circle and game.clon == "©" then
+			if game.del and os.message("Delete "..dels.." CLON(s)?",1) == 1 then
+				buttons.homepopup(0)
+				for i=1,list.len do if list.data[i].del then delete_bubble(list.data[i].id) end end
+				os.message("CLON(s) Eliminated")
+				update_db(false)
+			elseif dels == 0 and os.message("Delete CLON: "..game.id.." ?",1) == 1 then
+				buttons.homepopup(0)
+				delete_bubble(game.id)
+				update_db(false)
 			end
 		end
 	end
 
-	---------Controls-------------------------------------------------------------------------------------------------------
-		if (buttons.up or buttons.analogly < -60) and pos > 1 then pos -= 1 end
-		if (buttons.down or buttons.analogly > 60) and pos < list.len then pos += 1 end
+	if buttons.select then
+		for i=1,list.len do list.data[i].del = false end
+		dels = 0
+	end
 
-		if buttons.cross and list.data[pos].flag == 1 then
-			if check_freespace() then
-				if os.message("Install ARK in the game "..list.data[pos].id.." ?",1) == 1 then
-					status = false
-					buttons.homepopup(0)
-					install_ark(list.data[pos].path)
-					update_db(true)
-				end
-			else
-				os.message("Not Enough Memory (minimum 40 MB)")
-			end
+	if buttons.start and check_freespace() then
+		if files.exists(PATHTONPUZ.."/EBOOT.PBP") then
+			os.message("The MINI Sasuke vs Commander is already installed",0)
+		else
+			install_ark_from0()
 		end
-
-		if buttons.square and list.data[pos].flag == 1 then
-			if check_freespace() then
-				delp = false
-				if os.message("Would you like to have this game cloned so you can install ARK \nor Adrenaline?",1) == 1 then
-
-					if files.exists(PATHTOGAME..list.data[pos].id.."/PBOOT.PBP") then
-						local sfo = game.info(PATHTOGAME..list.data[pos].id.."/PBOOT.PBP")
-						if os.message("PBOOT.PBP: "..tostring(sfo.TITLE).." was found".."\n\nYou want to delete it ?\n\nClones will be clean ",1) == 1 then
-							delp = true
-						end
-					end
-
-					number_clons = math.minmax(tonumber(osk.init("Create Clones (1 to 9)","1",2,1)),1,9)
-					install_clone(list.data[pos].path, list.data[pos].id, number_clons, delp)		
-				end--os.message
-			else
-				os.message("Not Enough Memory (minimum 40 MB)")
-			end		
-		end
-
-		if buttons.triangle and list.data[pos].clon == "©" then
-			list.data[pos].del = not list.data[pos].del
-			if list.data[pos].del then dels+=1 else dels-=1 end
-		end
-
-		if buttons.circle and list.data[pos].clon == "©" then
-			if list.data[pos].del then
-				if os.message("Delete(s) "..dels.." this CLON(s) ??",1) == 1 then
-					buttons.homepopup(0)
-					for i=1,list.len do
-						if list.data[i].del then
-							delete_bubble(list.data[i].id)
-						end
-					end
-					os.message("Ready..."..dels.."\n\nCLON(s) Eliminated(s)")
-					update_db(false)
-				end
-			elseif dels==0  then
-				if os.message("Delete this CLON: "..list.data[pos].id.." ?",1) == 1 then
-					buttons.homepopup(0)
-					delete_bubble(list.data[pos].id)
-					update_db(false)
-				end
-			end
-		end
-
-		if buttons.select then
-			for i=1,list.len do
-				if list.data[i].del then
-					list.data[i].del = false
-					dels=0
-				end
-			end
-		end
-
-		if buttons.start then
-			if check_freespace() then
-				if files.exists(PATHTONPUZ.."/EBOOT.PBP") then
-					os.message("The MINI Sasuke vs Commander is already installed",0)
-				else
-					install_ark_from0()
-				end
-			else
-				os.message("Not Enough Memory (minimum 40 MB)")
-			end
-		end
-		---------Controls---------------------------------------------------------------------------------------------------
+	end
 
 	screen.flip()
 end
